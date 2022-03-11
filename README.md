@@ -103,7 +103,7 @@ CUDA_VISIBLE_DEVICES=0 nohup python3 -u train.py --weight_path $WEIGHT_PATH --gp
 ## Test
 You should define your weight file path `WEIGHT_FILE` and test data's path `DATA_TEST`
 ```Bash
-WEIGHT_PATH=weight/best.pt
+WEIGHT_PATH=weight/best_all.pt
 DATA_TEST=./data/test # your own images
 
 CUDA_VISIBLE_DEVICES=0 python3 test.py --weight_path $WEIGHT_PATH --gpu_id 0 --visiual $DATA_TEST --eval

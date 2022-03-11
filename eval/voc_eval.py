@@ -106,7 +106,8 @@ def voc_eval(detpath,
         # load annots
         recs = {}
         for i, imagename in enumerate(imagenames):
-            recs[imagename] = parse_rec(annopath.format(imagename))
+            tmp_path = os.path.join(annopath, '{:s}.xml'.format(imagename))
+            recs[imagename] = parse_rec(tmp_path)
             if i % 100 == 0:
                 print ('Reading annotation for {:d}/{:d}'.format(
                     i + 1, len(imagenames)))

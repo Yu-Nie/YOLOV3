@@ -14,7 +14,22 @@ class RandomHorizontalFilp(object):
             # img = np.fliplr(img)
             img = img[:, ::-1, :]
             bboxes[:, [0, 2]] = w_img - bboxes[:, [2, 0]]
+            for i in range(5, 9, 1):
+                bboxes[:, [i]], bboxes[:, [i + 12]] = bboxes[:, [i + 12]], bboxes[:, [i]]
+            for i in range(9, 12):
+                bboxes[:, [i]], bboxes[:, [i + 4]] = bboxes[:, [i + 4]], bboxes[:, [i]]
         return img, bboxes
+
+    '''
+        def __call__(self, img, bboxes):
+        if random.random() < self.p:
+            _, w_img, _ = img.shape
+            # img = np.fliplr(img)
+            img = img[:, ::-1, :]
+            bboxes[:, [0, 2]] = w_img - bboxes[:, [2, 0]]
+
+        return img, bboxes
+    '''
 
 
 class RandomCrop(object):
@@ -36,7 +51,7 @@ class RandomCrop(object):
             crop_xmax = max(w_img, int(max_bbox[2] + random.uniform(0, max_r_trans)))
             crop_ymax = max(h_img, int(max_bbox[3] + random.uniform(0, max_d_trans)))
 
-            img = img[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
+            img = img[crop_ymin: crop_ymax, crop_xmin: crop_xmax]
 
             bboxes[:, [0, 2]] = bboxes[:, [0, 2]] - crop_xmin
             bboxes[:, [1, 3]] = bboxes[:, [1, 3]] - crop_ymin
@@ -73,12 +88,13 @@ class Resize(object):
     Resize the image to target size and transforms it into a color channel(BGR->RGB),
     as well as pixel value normalization([0,1])
     """
+
     def __init__(self, target_shape, correct_box=True):
         self.h_target, self.w_target = target_shape
         self.correct_box = correct_box
 
     def __call__(self, img, bboxes):
-        h_org , w_org , _= img.shape
+        h_org, w_org, _ = img.shape
 
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).astype(np.float32)
 

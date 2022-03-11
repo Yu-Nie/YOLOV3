@@ -65,9 +65,10 @@ class Tester(object):
                     boxes = bboxes_prd[..., :4]
                     class_inds = bboxes_prd[..., 5].astype(np.int32)
                     scores = bboxes_prd[..., 4]
+                    ratios = bboxes_prd[..., 6:]
 
-                    visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes)
-                    path = os.path.join(cfg.PROJECT_PATH, "data/{}".format(v))
+                    visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes, ratios=ratios)
+                    path = os.path.join(cfg.PROJECT_PATH, "data/predictions/{}".format(v))
 
                     cv2.imwrite(path, img)
                     print("saved images : {}".format(path))

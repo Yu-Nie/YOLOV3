@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("..")
 
 # AbsolutePath = os.path.abspath(__file__)           #将相对路径转换成绝对路径
@@ -21,13 +22,14 @@ class Yolov3(nn.Module):
     """
     Note ： int the __init__(), to define the modules should be in order, because of the weight file is order
     """
+
     def __init__(self, init_weights=True):
         super(Yolov3, self).__init__()
 
         self.__anchors = torch.FloatTensor(cfg.MODEL["ANCHORS"])
         self.__strides = torch.FloatTensor(cfg.MODEL["STRIDES"])
         self.__nC = cfg.DATA["NUM"]
-        self.__out_channel = cfg.MODEL["ANCHORS_PER_SCLAE"] * (self.__nC + 5)
+        self.__out_channel = cfg.MODEL["ANCHORS_PER_SCLAE"] * (self.__nC + 5 + 16)
 
         self.__backnone = Darknet53()
         self.__fpn = FPN_YOLOV3(fileters_in=[1024, 512, 256],
@@ -42,7 +44,6 @@ class Yolov3(nn.Module):
 
         if init_weights:
             self.__init_weights()
-
 
     def forward(self, x):
         out = []
@@ -61,7 +62,6 @@ class Yolov3(nn.Module):
             p, p_d = list(zip(*out))
             return p, torch.cat(p_d, 0)
 
-
     def __init_weights(self):
 
         " Note ：nn.Conv2d nn.BatchNorm2d'initing modes are uniform "
@@ -70,14 +70,13 @@ class Yolov3(nn.Module):
                 torch.nn.init.normal_(m.weight.data, 0.0, 0.01)
                 if m.bias is not None:
                     m.bias.data.zero_()
-                print("initing {}".format(m))
+                # print("initing {}".format(m))
 
             elif isinstance(m, nn.BatchNorm2d):
                 torch.nn.init.constant_(m.weight.data, 1.0)
                 torch.nn.init.constant_(m.bias.data, 0.0)
 
-                print("initing {}".format(m))
-
+                # print("initing {}".format(m))
 
     def load_darknet_weights(self, weight_file, cutoff=52):
         "https://github.com/ultralytics/yolov3/blob/master/models.py"
@@ -118,7 +117,7 @@ class Yolov3(nn.Module):
                     bn_layer.running_var.data.copy_(bn_rv)
                     ptr += num_b
 
-                    print("loading weight {}".format(bn_layer))
+                    # print("loading weight {}".format(bn_layer))
                 else:
                     # Load conv. bias
                     num_b = conv_layer.bias.numel()
@@ -131,8 +130,7 @@ class Yolov3(nn.Module):
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
-                print("loading weight {}".format(conv_layer))
-
+                # print("loading weight {}".format(conv_layer))
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("../utils")
 import torch
 import torch.nn as nn
@@ -29,11 +30,11 @@ class YoloV3Loss(nn.Module):
     def forward(self, p, p_d, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes):
         """
         :param p: Predicted offset values for three detection layers.
-                    The shape is [p0, p1, p2], ex. p0=[bs, grid, grid, anchors, tx+ty+tw+th+conf+cls_20]
+                    The shape is [p0, p1, p2], ex. p0=[bs, grid, grid, anchors, tx+ty+tw+th+conf+cls_20+ratio_16]
         :param p_d: Decodeed predicted value. The size of value is for image size.
-                    ex. p_d0=[bs, grid, grid, anchors, x+y+w+h+conf+cls_20]
+                    ex. p_d0=[bs, grid, grid, anchors, x+y+w+h+conf+cls_20+ratio_16]
         :param label_sbbox: Small detection layer's label. The size of value is for original image size.
-                    shape is [bs, grid, grid, anchors, x+y+w+h+conf+mix+cls_20]
+                    shape is [bs, grid, grid, anchors, x+y+w+h+conf+mix+cls_20+ratio_16]
         :param label_mbbox: Same as label_sbbox.
         :param label_lbbox: Same as label_sbbox.
         :param sbboxes: Small detection layer bboxes.The size of value is for original image size.
@@ -43,20 +44,20 @@ class YoloV3Loss(nn.Module):
         """
         strides = self.__strides
 
-        loss_s, loss_s_giou, loss_s_conf, loss_s_cls = self.__cal_loss_per_layer(p[0], p_d[0], label_sbbox,
-                                                               sbboxes, strides[0])
-        loss_m, loss_m_giou, loss_m_conf, loss_m_cls = self.__cal_loss_per_layer(p[1], p_d[1], label_mbbox,
-                                                               mbboxes, strides[1])
-        loss_l, loss_l_giou, loss_l_conf, loss_l_cls = self.__cal_loss_per_layer(p[2], p_d[2], label_lbbox,
-                                                               lbboxes, strides[2])
+        loss_s, loss_s_giou, loss_s_conf, loss_s_cls, loss_s_ratios = self.__cal_loss_per_layer(p[0], p_d[0], label_sbbox,
+                                                                                 sbboxes, strides[0])
+        loss_m, loss_m_giou, loss_m_conf, loss_m_cls, loss_m_ratios = self.__cal_loss_per_layer(p[1], p_d[1], label_mbbox,
+                                                                                 mbboxes, strides[1])
+        loss_l, loss_l_giou, loss_l_conf, loss_l_cls,loss_l_ratios = self.__cal_loss_per_layer(p[2], p_d[2], label_lbbox,
+                                                                                 lbboxes, strides[2])
 
         loss = loss_l + loss_m + loss_s
         loss_giou = loss_s_giou + loss_m_giou + loss_l_giou
         loss_conf = loss_s_conf + loss_m_conf + loss_l_conf
         loss_cls = loss_s_cls + loss_m_cls + loss_l_cls
+        loss_ratios = loss_s_ratios + loss_m_ratios + loss_l_ratios
 
-        return loss, loss_giou, loss_conf, loss_cls
-
+        return loss, loss_giou, loss_conf, loss_cls, loss_ratios
 
     def __cal_loss_per_layer(self, p, p_d, label, bboxes, stride):
         """
@@ -84,15 +85,18 @@ class YoloV3Loss(nn.Module):
         img_size = stride * grid
 
         p_conf = p[..., 4:5]
-        p_cls = p[..., 5:]
+        p_cls = p[..., 5:25]
+        p_ratio = p[..., 25:]
 
         p_d_xywh = p_d[..., :4]
 
         label_xywh = label[..., :4]
         label_obj_mask = label[..., 4:5]
-        label_cls = label[..., 6:]
+        label_cls = label[..., 6:26]
+        label_ratio = label[..., 26:]
         label_mix = label[..., 5:6]
 
+        # print(label, label_obj_mask, label_cls, label_ratio, label_mix)
 
         # loss giou
         giou = tools.GIOU_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
@@ -101,40 +105,44 @@ class YoloV3Loss(nn.Module):
         bbox_loss_scale = 2.0 - 1.0 * label_xywh[..., 2:3] * label_xywh[..., 3:4] / (img_size ** 2)
         loss_giou = label_obj_mask * bbox_loss_scale * (1.0 - giou) * label_mix
 
-
         # loss confidence
         iou = tools.iou_xywh_torch(p_d_xywh.unsqueeze(4), bboxes.unsqueeze(1).unsqueeze(1).unsqueeze(1))
         iou_max = iou.max(-1, keepdim=True)[0]
         label_noobj_mask = (1.0 - label_obj_mask) * (iou_max < self.__iou_threshold_loss).float()
 
         loss_conf = (label_obj_mask * FOCAL(input=p_conf, target=label_obj_mask) +
-                    label_noobj_mask * FOCAL(input=p_conf, target=label_obj_mask)) * label_mix
-
+                     label_noobj_mask * FOCAL(input=p_conf, target=label_obj_mask)) * label_mix
 
         # loss classes
         loss_cls = label_obj_mask * BCE(input=p_cls, target=label_cls) * label_mix
 
+        # loss ratios
+        loss_ratios = label_obj_mask * BCE(input=p_ratio, target=label_ratio) * label_mix
 
         loss_giou = (torch.sum(loss_giou)) / batch_size
         loss_conf = (torch.sum(loss_conf)) / batch_size
         loss_cls = (torch.sum(loss_cls)) / batch_size
-        loss = loss_giou + loss_conf + loss_cls
+        loss_ratios = (torch.sum(loss_ratios)) / batch_size
+        loss = loss_giou + loss_conf + loss_cls + loss_ratios
 
-        return loss, loss_giou, loss_conf, loss_cls
+        return loss, loss_giou, loss_conf, loss_cls, loss_ratios
 
 
 if __name__ == "__main__":
     from model.yolov3 import Yolov3
+
     net = Yolov3()
 
     p, p_d = net(torch.rand(3, 3, 416, 416))
-    label_sbbox = torch.rand(3,  52, 52, 3,26)
-    label_mbbox = torch.rand(3,  26, 26, 3, 26)
-    label_lbbox = torch.rand(3, 13, 13, 3,26)
+    label_sbbox = torch.rand(3, 52, 52, 3, 42)
+    label_mbbox = torch.rand(3, 26, 26, 3, 42)
+    label_lbbox = torch.rand(3, 13, 13, 3, 42)
     sbboxes = torch.rand(3, 150, 4)
     mbboxes = torch.rand(3, 150, 4)
     lbboxes = torch.rand(3, 150, 4)
 
-    loss, loss_xywh, loss_conf, loss_cls = YoloV3Loss(cfg.MODEL["ANCHORS"], cfg.MODEL["STRIDES"])(p, p_d, label_sbbox,
-                                    label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)
+    loss, loss_xywh, loss_conf, loss_cls, loss_ratios = YoloV3Loss(cfg.MODEL["ANCHORS"], cfg.MODEL["STRIDES"])(p, p_d, label_sbbox,
+                                                                                                  label_mbbox,
+                                                                                                  label_lbbox, sbboxes,
+                                                                                                  mbboxes, lbboxes)
     print(loss)

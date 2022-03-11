@@ -1,6 +1,7 @@
 # coding=utf-8
 import os
 import sys
+
 sys.path.append("..")
 sys.path.append("../utils")
 import torch
@@ -25,21 +26,19 @@ class VocDataset(Dataset):
         self.__annotations = self.__load_annotations(anno_file_type)
 
     def __len__(self):
-        return  len(self.__annotations)
+        return len(self.__annotations)
 
     def __getitem__(self, item):
 
         img_org, bboxes_org = self.__parse_annotation(self.__annotations[item])
         img_org = img_org.transpose(2, 0, 1)  # HWC->CHW
-        
-        item_mix = random.randint(0, len(self.__annotations)-1)
+
+        item_mix = random.randint(0, len(self.__annotations) - 1)
         img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
         img_mix = img_mix.transpose(2, 0, 1)
 
-
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
         del img_org, bboxes_org, img_mix, bboxes_mix
-
 
         label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
 
@@ -53,14 +52,13 @@ class VocDataset(Dataset):
 
         return img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
-
     def __load_annotations(self, anno_type):
 
         assert anno_type in ['train', 'test'], "You must choice one of the 'train' or 'test' for anno_type parameter"
-        anno_path = os.path.join(cfg.PROJECT_PATH, 'data', anno_type+"_annotation.txt")
+        anno_path = os.path.join(cfg.PROJECT_PATH, 'data', anno_type + "_annotation.txt")
         with open(anno_path, 'r') as f:
-            annotations = list(filter(lambda x:len(x)>0, f.readlines()))
-        assert len(annotations)>0, "No images found in {}".format(anno_path)
+            annotations = list(filter(lambda x: len(x) > 0, f.readlines()))
+        assert len(annotations) > 0, "No images found in {}".format(anno_path)
 
         return annotations
 
@@ -76,9 +74,11 @@ class VocDataset(Dataset):
         img_path = anno[0]
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
-        bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
+        bboxes = np.array([list(map(float, box.split(',')[0:])) for box in anno[1:]])
+        # ratios = np.array([list(map(float, box.split(',')[5:])) for box in anno[1:]])
 
         img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes))
+        # img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
@@ -106,18 +106,20 @@ class VocDataset(Dataset):
         train_output_size = self.img_size / strides
         anchors_per_scale = cfg.MODEL["ANCHORS_PER_SCLAE"]
 
-        label = [np.zeros((int(train_output_size[i]), int(train_output_size[i]), anchors_per_scale, 6+self.num_classes))
-                                                                      for i in range(3)]
+        label = [
+            np.zeros((int(train_output_size[i]), int(train_output_size[i]), anchors_per_scale, 6 + self.num_classes + 16))
+            for i in range(3)]
         for i in range(3):
             label[i][..., 5] = 1.0
 
-        bboxes_xywh = [np.zeros((150, 4)) for _ in range(3)]   # Darknet the max_num is 30
+        bboxes_xywh = [np.zeros((150, 4)) for _ in range(3)]  # Darknet the max_num is 30
         bbox_count = np.zeros((3,))
 
         for bbox in bboxes:
             bbox_coor = bbox[:4]
             bbox_class_ind = int(bbox[4])
-            bbox_mix = bbox[5]
+            bbox_ratios = bbox[5:21]
+            bbox_mix = bbox[21]
 
             # onehot
             one_hot = np.zeros(self.num_classes, dtype=np.float32)
@@ -149,7 +151,8 @@ class VocDataset(Dataset):
                     label[i][yind, xind, iou_mask, 0:4] = bbox_xywh
                     label[i][yind, xind, iou_mask, 4:5] = 1.0
                     label[i][yind, xind, iou_mask, 5:6] = bbox_mix
-                    label[i][yind, xind, iou_mask, 6:] = one_hot_smooth
+                    label[i][yind, xind, iou_mask, 6:6+self.num_classes] = one_hot_smooth
+                    label[i][yind, xind, iou_mask, 6+self.num_classes:] = bbox_ratios
 
                     bbox_ind = int(bbox_count[i] % 150)  # BUG : 150为一个先验值,内存消耗大
                     bboxes_xywh[i][bbox_ind, :4] = bbox_xywh
@@ -167,7 +170,8 @@ class VocDataset(Dataset):
                 label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
                 label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
                 label[best_detect][yind, xind, best_anchor, 5:6] = bbox_mix
-                label[best_detect][yind, xind, best_anchor, 6:] = one_hot_smooth
+                label[best_detect][yind, xind, best_anchor, 6:6+self.num_classes] = one_hot_smooth
+                label[best_detect][yind, xind, best_anchor, 6+self.num_classes:] = bbox_ratios
 
                 bbox_ind = int(bbox_count[best_detect] % 150)
                 bboxes_xywh[best_detect][bbox_ind, :4] = bbox_xywh
@@ -184,8 +188,8 @@ if __name__ == "__main__":
     voc_dataset = VocDataset(anno_file_type="train", img_size=448)
     dataloader = DataLoader(voc_dataset, shuffle=True, batch_size=1, num_workers=0)
 
-    for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(dataloader):
-        if i==0:
+    for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes, ratios) in enumerate(dataloader):
+        if i == 0:
             print(img.shape)
             print(label_sbbox.shape)
             print(label_mbbox.shape)
@@ -193,13 +197,14 @@ if __name__ == "__main__":
             print(sbboxes.shape)
             print(mbboxes.shape)
             print(lbboxes.shape)
+            print(ratios.shape)
 
             if img.shape[0] == 1:
                 labels = np.concatenate([label_sbbox.reshape(-1, 26), label_mbbox.reshape(-1, 26),
                                          label_lbbox.reshape(-1, 26)], axis=0)
-                labels_mask = labels[..., 4]>0
+                labels_mask = labels[..., 4] > 0
                 labels = np.concatenate([labels[labels_mask][..., :4], np.argmax(labels[labels_mask][..., 6:],
-                                        axis=-1).reshape(-1, 1)], axis=-1)
+                                                                                 axis=-1).reshape(-1, 1)], axis=-1)
 
                 print(labels.shape)
                 tools.plot_box(labels, img, id=1)

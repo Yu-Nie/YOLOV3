@@ -123,5 +123,4 @@ class FPN_YOLOV3(nn.Module):
         r2 = self.__conv_set_2(x2)
         out2 = self.__conv2_0(r2)
         out2 = self.__conv2_1(out2)
-
         return out2, out1, out0  # small, medium, large

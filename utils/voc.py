@@ -39,23 +39,25 @@ def parse_voc_annotation(data_path, file_type, anno_path, use_difficult_bbox=Fal
                 ymin = bbox.find('ymin').text.strip()
                 xmax = bbox.find('xmax').text.strip()
                 ymax = bbox.find('ymax').text.strip()
-                annotation += ' ' + ','.join([xmin, ymin, xmax, ymax, str(class_id)])
+                ratio = bbox.find('mask_ratio').text.strip()
+                mask_ratio = [float(r) for r in ratio.split(',')]
+                tmp = str(mask_ratio)[1:-1].replace(' ', '')
+                annotation += ' ' + ','.join([xmin, ymin, xmax, ymax, str(class_id), tmp])
             annotation += '\n'
-            # print(annotation)
             f.write(annotation)
     return len(image_ids)
 
 
 if __name__ =="__main__":
     # train_set :  VOC2007_trainval 和 VOC2012_trainval
-    train_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOCtrainval-2007', 'VOCdevkit', 'VOC2007')
-    train_data_path_2012 = os.path.join(cfg.DATA_PATH, 'VOCtrainval-2012', 'VOCdevkit', 'VOC2012')
+    train_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOC2007')
+    train_data_path_2012 = os.path.join(cfg.DATA_PATH, 'VOC2012')
     train_annotation_path = os.path.join('../data', 'train_annotation.txt')
     if os.path.exists(train_annotation_path):
         os.remove(train_annotation_path)
 
     # val_set   : VOC2007_test
-    test_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOCtest-2007', 'VOCdevkit', 'VOC2007')
+    test_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOCtest-2007')
     test_annotation_path = os.path.join('../data', 'test_annotation.txt')
     if os.path.exists(test_annotation_path):
         os.remove(test_annotation_path)

@@ -17,7 +17,7 @@ class Evaluator(object):
     def __init__(self, model, visiual=True):
         self.classes = cfg.DATA["CLASSES"]
         self.pred_result_path = os.path.join(cfg.PROJECT_PATH, 'data', 'results')
-        self.val_data_path = os.path.join(cfg.DATA_PATH, 'VOCtest-2007', 'VOCdevkit', 'VOC2007')
+        self.val_data_path = os.path.join(cfg.DATA_PATH, 'VOCtest-2007')
         self.conf_thresh = cfg.TEST["CONF_THRESH"]
         self.nms_thresh = cfg.TEST["NMS_THRESH"]
         self.val_shape =  cfg.TEST["TEST_IMG_SIZE"]
@@ -47,8 +47,9 @@ class Evaluator(object):
                 boxes = bboxes_prd[..., :4]
                 class_inds = bboxes_prd[..., 5].astype(np.int32)
                 scores = bboxes_prd[..., 4]
+                ratios = bboxes_prd[..., 6:]
 
-                visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes)
+                visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes, ratios=ratios)
                 path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
                 cv2.imwrite(path, img)
 
@@ -112,7 +113,8 @@ class Evaluator(object):
         """
         pred_coor = xywh2xyxy(pred_bbox[:, :4])
         pred_conf = pred_bbox[:, 4]
-        pred_prob = pred_bbox[:, 5:]
+        pred_prob = pred_bbox[:, 5:25]
+        pred_ratio = pred_bbox[:, 25:]
 
         # (1)
         # (xmin_org, xmax_org) = ((xmin, xmax) - dw) / resize_ratio
@@ -125,6 +127,7 @@ class Evaluator(object):
         dh = (test_input_size - resize_ratio * org_h) / 2
         pred_coor[:, 0::2] = 1.0 * (pred_coor[:, 0::2] - dw) / resize_ratio
         pred_coor[:, 1::2] = 1.0 * (pred_coor[:, 1::2] - dh) / resize_ratio
+
 
         # (2)将预测的bbox中超出原图的部分裁掉
         pred_coor = np.concatenate([np.maximum(pred_coor[:, :2], [0, 0]),
@@ -147,8 +150,9 @@ class Evaluator(object):
         coors = pred_coor[mask]
         scores = scores[mask]
         classes = classes[mask]
+        ratios = pred_ratio[mask]
 
-        bboxes = np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
+        bboxes = np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis], ratios], axis=-1)
 
         return bboxes
 
@@ -162,7 +166,7 @@ class Evaluator(object):
         """
         filename = os.path.join(self.pred_result_path, 'comp4_det_test_{:s}.txt')
         cachedir = os.path.join(self.pred_result_path, 'cache')
-        annopath = os.path.join(self.val_data_path, 'Annotations', '{:s}.xml')
+        annopath = os.path.join(self.val_data_path, 'Annotations')
         imagesetfile = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'test.txt')
         APs = {}
         for i, cls in enumerate(self.classes):
