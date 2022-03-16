@@ -43,17 +43,17 @@ class Evaluator(object):
             img = cv2.imread(img_path)
             bboxes_prd = self.get_bbox(img, multi_test, flip_test)
 
-            if bboxes_prd.shape[0]!=0 and self.__visiual and self.__visual_imgs < 100:
-                boxes = bboxes_prd[..., :4]
-                class_inds = bboxes_prd[..., 5].astype(np.int32)
-                scores = bboxes_prd[..., 4]
-                ratios = bboxes_prd[..., 6:]
-
-                visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes, ratios=ratios)
-                path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
-                cv2.imwrite(path, img)
-
-                self.__visual_imgs += 1
+            # if bboxes_prd.shape[0]!=0 and self.__visiual and self.__visual_imgs < 100:
+            #     boxes = bboxes_prd[..., :4]
+            #     class_inds = bboxes_prd[..., 5].astype(np.int32)
+            #     scores = bboxes_prd[..., 4]
+            #     ratios = bboxes_prd[..., 6:]
+            #
+            #     visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes, ratios=ratios)
+            #     path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
+            #     cv2.imwrite(path, img)
+            #
+            #     self.__visual_imgs += 1
 
             for bbox in bboxes_prd:
                 coor = np.array(bbox[:4], dtype=np.int32)
