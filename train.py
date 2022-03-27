@@ -36,6 +36,7 @@ class Trainer(object):
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
                                            shuffle=True)
         self.yolov3 = Yolov3().to(self.device)
+
         # self.yolov3.apply(tools.weights_init_normal)
 
         self.optimizer = optim.SGD(self.yolov3.parameters(), lr=cfg.TRAIN["LR_INIT"],
