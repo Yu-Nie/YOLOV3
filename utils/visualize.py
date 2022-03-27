@@ -25,7 +25,7 @@ import PIL.Image as Image
 import PIL.ImageColor as ImageColor
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageFont as ImageFont
-import matplotlib.pyplot as plt
+import cv2
 
 _TITLE_LEFT_MARGIN = 10
 _TITLE_TOP_MARGIN = 10
@@ -72,7 +72,7 @@ def visualize_boxes_and_labels_on_image_array(
         scores,
         category_index,
         ratios,
-        ratio_mask = False,
+        ratio_mask=True,
         instance_masks=None,
         instance_boundaries=None,
         use_normalized_coordinates=False,
@@ -125,6 +125,7 @@ def visualize_boxes_and_labels_on_image_array(
     # that correspond to the same location.
     box_to_display_str_map = collections.defaultdict(list)
     box_to_color_map = collections.defaultdict(str)
+    box_to_ratio_map = collections.defaultdict(list)
     box_to_instance_masks_map = {}
     box_to_instance_boundaries_map = {}
     if not max_boxes_to_draw:
@@ -134,11 +135,12 @@ def visualize_boxes_and_labels_on_image_array(
     boxes = boxes[sorted_ind]
     scores = scores[sorted_ind]
     classes = classes[sorted_ind]
-    #ratios = ratios[sorted_ind]
+    ratios = ratios[sorted_ind]
     for i in range(min(max_boxes_to_draw, boxes.shape[0])):
         if scores is None or scores[i] > min_score_thresh:
             box = tuple(boxes[i].tolist())
-            #ratio = tuple(ratios[i].tolist())
+            ratio = tuple(ratios[i].tolist())
+            box_to_ratio_map[box] = ratio
             if instance_masks is not None:
                 box_to_instance_masks_map[box] = instance_masks[i]
             if instance_boundaries is not None:
@@ -182,15 +184,6 @@ def visualize_boxes_and_labels_on_image_array(
                 color='red',
                 alpha=1.0
             )
-        if ratio_mask:
-            draw_ratio_mask(
-                image,
-                xmin,
-                xmax,
-                ymin,
-                ymax,
-                ratio=[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-            )
 
         draw_bounding_box_on_image_array(
             image,
@@ -202,6 +195,21 @@ def visualize_boxes_and_labels_on_image_array(
             thickness=line_thickness,
             display_str_list=box_to_display_str_map[box],
             use_normalized_coordinates=use_normalized_coordinates)
+
+    # apply ratio mask to the box
+    for box, rat in box_to_ratio_map.items():
+        xmin, ymin, xmax, ymax = box
+        if ratio_mask:
+            draw_ratio_mask(
+                image,
+                xmin,
+                xmax,
+                ymin,
+                ymax,
+                rat,
+            )
+    # cv2.imshow("img", image)
+    # cv2.waitKey(0)
     return image
 
 
@@ -350,23 +358,24 @@ def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
 
 
 def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
-    x_diff = int((xmax - xmin) / 4)
-    y_diff = int((ymax - ymin) / 4)
+    x_diff = (xmax - xmin) / 4
+    y_diff = (ymax - ymin) / 4
+    print(ratio)
 
     count = 0
     for i in range(4):
         for j in range(4):
-            x_seg_min = xmin + x_diff * j
-            x_seg_max = xmin + x_diff * (j + 1)
-            y_seg_min = ymin + y_diff * i
-            y_seg_max = ymin + y_diff * (i + 1)
-            if ratio[count] == 0:
+            x_seg_min = int(xmin + x_diff * i)
+            x_seg_max = int(xmin + x_diff * (i + 1))
+            y_seg_min = int(ymin + y_diff * j)
+            y_seg_max = int(ymin + y_diff * (j + 1))
+            if ratio[count] <= 0.05:
                 output_image = image.astype(np.float32)
                 output_image[y_seg_min:y_seg_max, x_seg_min:x_seg_max, :] *= 0.5
-                #image = output_image.astype(np.uint8)
-                np.copyto(image,output_image.astype(np.uint8))
-                cv2.imshow(image, "img")
+                cv2.imshow("img", image)
                 cv2.waitKey(0)
+                image = output_image.astype(np.uint8)
+                np.copyto(image, output_image.astype(np.uint8))
             count += 1
 
 
