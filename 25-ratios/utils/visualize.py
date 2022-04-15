@@ -372,8 +372,8 @@ def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
             if ratio[count] <= 0.05:
                 output_image = image.astype(np.float32)
                 output_image[y_seg_min:y_seg_max, x_seg_min:x_seg_max, :] *= 0.5
-                cv2.imshow("img", image)
-                cv2.waitKey(0)
+                # cv2.imshow("img", image)
+                # cv2.waitKey(0)
                 image = output_image.astype(np.uint8)
                 np.copyto(image, output_image.astype(np.uint8))
             count += 1
