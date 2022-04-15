@@ -119,7 +119,7 @@ class VocDataset(Dataset):
             bbox_coor = bbox[:4]
             bbox_class_ind = int(bbox[4])
             bbox_ratios = bbox[5:30]
-            bbox_mix = bbox[21]
+            bbox_mix = bbox[30]
 
             # onehot
             one_hot = np.zeros(self.num_classes, dtype=np.float32)
