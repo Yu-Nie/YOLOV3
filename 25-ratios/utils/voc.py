@@ -27,7 +27,6 @@ def parse_voc_annotation(data_path, file_type, anno_path, use_difficult_bbox=Fal
             image_path = os.path.join(data_path, 'JPEGImages', image_id + '.jpg')
             annotation = image_path
             label_path = os.path.join(data_path, 'Annotations-25', image_id + '.xml')
-            print(label_path)
             root = ET.parse(label_path).getroot()
             objects = root.findall('object')
             for obj in objects:
