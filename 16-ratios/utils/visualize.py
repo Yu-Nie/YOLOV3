@@ -208,8 +208,6 @@ def visualize_boxes_and_labels_on_image_array(
                 ymax,
                 rat,
             )
-    # cv2.imshow("img", image)
-    # cv2.waitKey(0)
     return image
 
 
@@ -360,7 +358,6 @@ def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
 def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
     x_diff = (xmax - xmin) / 4
     y_diff = (ymax - ymin) / 4
-    print(ratio)
 
     count = 0
     for i in range(4):
@@ -372,9 +369,6 @@ def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
             if ratio[count] <= 0.05:
                 output_image = image.astype(np.float32)
                 output_image[y_seg_min:y_seg_max, x_seg_min:x_seg_max, :] *= 0.5
-                cv2.imshow("img", image)
-                cv2.waitKey(0)
-                image = output_image.astype(np.uint8)
                 np.copyto(image, output_image.astype(np.uint8))
             count += 1
 
