@@ -30,6 +30,7 @@ class Evaluator(object):
 
     def APs_voc(self, multi_test=False, flip_test=False):
         img_inds_file = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'test.txt')
+
         with open(img_inds_file, 'r') as f:
             lines = f.readlines()
             img_inds = [line.strip() for line in lines]
@@ -43,17 +44,17 @@ class Evaluator(object):
             img = cv2.imread(img_path)
             bboxes_prd = self.get_bbox(img, multi_test, flip_test)
 
-            # if bboxes_prd.shape[0]!=0 and self.__visiual and self.__visual_imgs < 100:
-            #     boxes = bboxes_prd[..., :4]
-            #     class_inds = bboxes_prd[..., 5].astype(np.int32)
-            #     scores = bboxes_prd[..., 4]
-            #     ratios = bboxes_prd[..., 6:]
-            #
-            #     visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes, ratios=ratios)
-            #     path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
-            #     cv2.imwrite(path, img)
-            #
-            #     self.__visual_imgs += 1
+            if bboxes_prd.shape[0]!=0 and self.__visiual and self.__visual_imgs < 100:
+                boxes = bboxes_prd[..., :4]
+                class_inds = bboxes_prd[..., 5].astype(np.int32)
+                scores = bboxes_prd[..., 4]
+                ratios = bboxes_prd[..., 6:]
+
+                visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes, ratios=ratios)
+                path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
+                cv2.imwrite(path, img)
+
+                self.__visual_imgs += 1
 
             for bbox in bboxes_prd:
                 coor = np.array(bbox[:4], dtype=np.int32)
@@ -63,11 +64,11 @@ class Evaluator(object):
                 class_name = self.classes[class_ind]
                 score = '%.4f' % score
                 xmin, ymin, xmax, ymax = map(str, coor)
+
                 s = ' '.join([img_ind, score, xmin, ymin, xmax, ymax]) + '\n'
 
                 with open(os.path.join(self.pred_result_path, 'comp4_det_test_' + class_name + '.txt'), 'a') as f:
                     f.write(s)
-
         return self.__calc_APs()
 
     def get_bbox(self, img, multi_test=False, flip_test=False):
@@ -166,7 +167,7 @@ class Evaluator(object):
         """
         filename = os.path.join(self.pred_result_path, 'comp4_det_test_{:s}.txt')
         cachedir = os.path.join(self.pred_result_path, 'cache')
-        annopath = os.path.join(self.val_data_path, 'Annotations')
+        annopath = os.path.join(self.val_data_path, 'Annotations-36')
         imagesetfile = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'test.txt')
         APs = {}
         for i, cls in enumerate(self.classes):

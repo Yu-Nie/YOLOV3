@@ -61,7 +61,6 @@ def visualize_boxes(image, boxes, labels, probs, class_labels, ratios):
     for id_, label_name in enumerate(class_labels):
         category_index[id_] = {"name": label_name}
     image = visualize_boxes_and_labels_on_image_array(image, boxes, labels, probs, category_index, ratios)
-
     return image
 
 
@@ -79,7 +78,7 @@ def visualize_boxes_and_labels_on_image_array(
         max_boxes_to_draw=20,
         min_score_thresh=.5,
         agnostic_mode=False,
-        line_thickness=4,
+        line_thickness=2,
         groundtruth_box_visualization_color='black',
         skip_scores=False,
         skip_labels=False):
@@ -167,10 +166,12 @@ def visualize_boxes_and_labels_on_image_array(
                 else:
                     box_to_color_map[box] = STANDARD_COLORS[
                         classes[i] % len(STANDARD_COLORS)]
-
     # Draw all boxes onto image.
     for box, color in box_to_color_map.items():
         xmin, ymin, xmax, ymax = box
+        # calirate bounding boxes
+        # xmin, xmax, ymin, ymax = calibration.calibrate(xmin, xmax, ymin,ymax)
+
         if instance_masks is not None:
             draw_mask_on_image_array(
                 image,
@@ -195,11 +196,13 @@ def visualize_boxes_and_labels_on_image_array(
             thickness=line_thickness,
             display_str_list=box_to_display_str_map[box],
             use_normalized_coordinates=use_normalized_coordinates)
-
     # apply ratio mask to the box
-    for box, rat in box_to_ratio_map.items():
-        xmin, ymin, xmax, ymax = box
-        if ratio_mask:
+    if ratio_mask:
+        # p = open(r'C:\Users\mrcry\Documents\yolo-v3-36/pred.txt', "a")
+        for box, rat in box_to_ratio_map.items():
+            xmin, ymin, xmax, ymax = box
+            #xmin, xmax, ymin, ymax = calibration.calibrate(xmin, xmax, ymin, ymax)
+            # p.write(str(xmin) + ' ' + str(xmax) + ' ' + str(ymin) + ' ' + str(ymax) + ' ')
             draw_ratio_mask(
                 image,
                 xmin,
@@ -208,8 +211,7 @@ def visualize_boxes_and_labels_on_image_array(
                 ymax,
                 rat,
             )
-    # cv2.imshow("img", image)
-    # cv2.waitKey(0)
+        # p.close()
     return image
 
 
@@ -312,14 +314,14 @@ def draw_bounding_box_on_image(image,
     for display_str in display_str_list[::-1]:
         text_width, text_height = font.getsize(display_str)
         margin = np.ceil(0.05 * text_height)
-        draw.rectangle(
-            [(left, text_bottom - text_height - 2 * margin), (left + text_width,
-                                                              text_bottom)],
-            fill=color)
+        # draw.rectangle(
+        #     [(left, text_bottom - text_height - 2 * margin), (left + text_width,
+        #                                                       text_bottom)],
+        #     fill=color)
         draw.text(
             (left + margin, text_bottom - text_height - margin),
             display_str,
-            fill='black',
+            fill='white',
             font=font)
         text_bottom -= text_height - 2 * margin
 
@@ -360,7 +362,6 @@ def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
 def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
     x_diff = (xmax - xmin) / 6
     y_diff = (ymax - ymin) / 6
-
     count = 0
     for i in range(6):
         for j in range(6):
@@ -368,12 +369,9 @@ def draw_ratio_mask(image, xmin, xmax, ymin, ymax, ratio):
             x_seg_max = int(xmin + x_diff * (i + 1))
             y_seg_min = int(ymin + y_diff * j)
             y_seg_max = int(ymin + y_diff * (j + 1))
-            if ratio[count] <= 0.05:
+            if ratio[count] <= 0.078:
                 output_image = image.astype(np.float32)
                 output_image[y_seg_min:y_seg_max, x_seg_min:x_seg_max, :] *= 0.5
-                # cv2.imshow("img", image)
-                # cv2.waitKey(0)
-                image = output_image.astype(np.uint8)
                 np.copyto(image, output_image.astype(np.uint8))
             count += 1
 

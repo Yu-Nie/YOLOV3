@@ -98,6 +98,7 @@ def get_ratio(xmin, ymin, xmax, ymax, label, img_path):
     for i in range(6):
         for j in range(6):
             segment = img[ymin + j * ydiff: ymin + (j + 1) * ydiff, xmin + i * xdiff:xmin + (i + 1) * xdiff, :]
+            # print(ymin + j * ydiff, ymin + (j + 1) * ydiff, xmin + i * xdiff, xmin + (i + 1) * xdiff)
             # cv2.imshow("img", segment)
             # cv2.waitKey(0)
             right, total = 0, 0
@@ -133,6 +134,7 @@ def edit_annotaions():
             # generate mask_ratio in xml files
             if os.path.isfile(segment_path):
                 ratio = get_ratio(int(xmin), int(ymin), int(xmax), int(ymax), label, segment_path)
+                '''
                 mask_name = ET.Element('mask_ratio')
                 mask_name.text = str(ratio)[1:-1]
                 bbox = obj.find('bndbox')
@@ -143,6 +145,7 @@ def edit_annotaions():
                 annot.write(new_path)
                 dom = xml.dom.minidom.parse(new_path)  # or xml.dom.minidom.parseString(xml_string)
                 pretty_xml_as_string = dom.toprettyxml()
+                '''
             label += 1
 
 
